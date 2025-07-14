@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Toolkit</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Fallback for pdf-lib if CDN fails -->
+    <script>
+        if (typeof PDFLib === 'undefined') {
+            document.write('<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>');
+        }
+
+        // Initialize the app
+        window.pdfToolkit = new PDFToolkit();
+    </script>
+    <style>
+        .dark {
+            --tw-bg-opacity: 1;
+            background-color: rgba(17, 24, 39, var(--tw-bg-opacity));
+            color: white;
+        }
+        
+        .drag-over {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        .file-item {
+            transition: all 0.2s ease;
+        }
+        
+        .file-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .toast.success { background-color: #10b981; }
+        .toast.error { background-color: #ef4444; }
+        .toast.warning { background-color: #f59e0b; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">PDF Toolkit</h1>
+                </div>
+                <button id="darkModeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Upload Area -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer">
+                <svg class="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Drop PDF files here</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">or click to browse files</p>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    Choose Files
+                </button>
+                <input type="file" id="fileInput" multiple accept=".pdf" class="hidden">
+            </div>
+        </div>
+
+        <!-- File List -->
+        <div id="fileList" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8 hidden">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Uploaded Files</h3>
+            <div id="fileItems" class="space-y-3"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button id="mergeBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Merge PDFs
+                </button>
+                <button id="splitBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Split PDF
+                </button>
+                <button id="clearBtn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Split Options Modal -->
+        <div id="splitModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Split PDF Options</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Split Method</label>
+                        <select id="splitMethod" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            <option value="each">Split each page separately</option>
+                            <option value="range">Split by page range</option>
+                            <option value="pages">Split by specific pages</option>
+                        </select>
+                    </div>
+                    <div id="splitInput" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Page Numbers/Ranges</label>
+                        <input type="text" id="pageInput" placeholder="e.g., 1-3, 5, 7-9" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Use commas to separate ranges/pages</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button id="cancelSplit" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">Cancel</button>
+                    <button id="confirmSplit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">Split PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progressContainer" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hidden">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Processing...</span>
+                <span id="progressText" class="text-sm text-gray-500 dark:text-gray-400">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div id="progressBar" class="bg-blue-600 h-2 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Download Area -->
+        <div id="downloadArea" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hidden">
+            <div class="text-center">
+                <svg class="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Processing Complete!</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">Your PDF is ready for download</p>
+                <div id="downloadButtons" class="space-y-2"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="text-center text-gray-600 dark:text-gray-400">
+                <p>&copy; 2025 PDF Toolkit. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Check if PDFLib is available
+        function checkPDFLib() {
+            if (typeof PDFLib === 'undefined') {
+                console.error('PDFLib is not loaded. Please check your internet connection.');
+                document.body.innerHTML = `
+                    <div class="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div class="text-center">
+                            <h1 class="text-2xl font-bold text-red-600 mb-4">PDF Library Failed to Load</h1>
+                            <p class="text-gray-600 mb-4">Please check your internet connection and refresh the page.</p>
+                            <button onclick="window.location.reload()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Refresh Page</button>
+                        </div>
+                    </div>
+                `;
+                return false;
+            }
+            return true;
+        }
+
+        // Wait for DOM and libraries to load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                if (checkPDFLib()) {
+                    window.pdfToolkit = new PDFToolkit();
+                }
+            }, 100);
+        });
+
+        class PDFToolkit {
+            constructor() {
+                this.files = [];
+                this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+                this.initializeEventListeners();
+                this.updateTheme();
+            }
+
+            initializeEventListeners() {
+                // Dark mode toggle
+                document.getElementById('darkModeToggle').addEventListener('click', () => {
+                    this.isDarkMode = !this.isDarkMode;
+                    localStorage.setItem('darkMode', this.isDarkMode);
+                    this.updateTheme();
+                });
+
+                // File input and drag & drop
+                const dropZone = document.getElementById('dropZone');
+                const fileInput = document.getElementById('fileInput');
+
+                dropZone.addEventListener('click', () => fileInput.click());
+                dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
+                dropZone.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                dropZone.addEventListener('drop', this.handleDrop.bind(this));
+                fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+
+                // Action buttons
+                document.getElementById('mergeBtn').addEventListener('click', this.mergePDFs.bind(this));
+                document.getElementById('splitBtn').addEventListener('click', this.showSplitModal.bind(this));
+                document.getElementById('clearBtn').addEventListener('click', this.clearFiles.bind(this));
+
+                // Split modal
+                document.getElementById('splitMethod').addEventListener('change', this.handleSplitMethodChange.bind(this));
+                document.getElementById('cancelSplit').addEventListener('click', this.hideSplitModal.bind(this));
+                document.getElementById('confirmSplit').addEventListener('click', this.splitPDF.bind(this));
+
+                // Close modal on background click
+                document.getElementById('splitModal').addEventListener('click', (e) => {
+                    if (e.target === e.currentTarget) {
+                        this.hideSplitModal();
+                    }
+                });
+            }
+
+            updateTheme() {
+                if (this.isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('drag-over');
+            }
+
+            handleDragLeave(e) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+
+            handleDrop(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('drag-over');
+                const files = Array.from(e.dataTransfer.files).filter(file => file.type === 'application/pdf');
+                this.addFiles(files);
+            }
+
+            handleFileSelect(e) {
+                const files = Array.from(e.target.files);
+                this.addFiles(files);
+            }
+
+            async addFiles(files) {
+                const validFiles = [];
+                
+                for (const file of files) {
+                    if (file.type !== 'application/pdf') {
+                        this.showToast('Only PDF files are allowed', 'error');
+                        continue;
+                    }
+                    
+                    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+                        this.showToast('File size must be less than 50MB', 'error');
+                        continue;
+                    }
+
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                        const pageCount = pdfDoc.getPageCount();
+                        
+                        validFiles.push({
+                            file,
+                            name: file.name,
+                            size: this.formatFileSize(file.size),
+                            pageCount,
+                            arrayBuffer,
+                            id: Date.now() + Math.random()
+                        });
+                    } catch (error) {
+                        this.showToast(`Error loading ${file.name}: Invalid PDF`, 'error');
+                    }
+                }
+
+                this.files.push(...validFiles);
+                this.updateFileList();
+                this.updateButtons();
+            }
+
+            updateFileList() {
+                const fileList = document.getElementById('fileList');
+                const fileItems = document.getElementById('fileItems');
+                
+                if (this.files.length === 0) {
+                    fileList.classList.add('hidden');
+                    return;
+                }
+
+                fileList.classList.remove('hidden');
+                fileItems.innerHTML = '';
+
+                this.files.forEach((fileData, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item bg-gray-50 dark:bg-gray-700 rounded-lg p-4 flex items-center justify-between fade-in';
+                    
+                    fileItem.innerHTML = `
+                        <div class="flex items-center">
+                            <svg class="w-8 h-8 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">${fileData.name}</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">${fileData.size} • ${fileData.pageCount} pages</p>
+                            </div>
+                        </div>
+                        <button class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1" onclick="pdfToolkit.removeFile(${index})">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    `;
+                    
+                    fileItems.appendChild(fileItem);
+                });
+            }
+
+            removeFile(index) {
+                this.files.splice(index, 1);
+                this.updateFileList();
+                this.updateButtons();
+            }
+
+            updateButtons() {
+                const mergeBtn = document.getElementById('mergeBtn');
+                const splitBtn = document.getElementById('splitBtn');
+                
+                mergeBtn.disabled = this.files.length < 2;
+                splitBtn.disabled = this.files.length !== 1;
+            }
+
+            clearFiles() {
+                this.files = [];
+                this.updateFileList();
+                this.updateButtons();
+                this.hideDownloadArea();
+                this.showToast('All files cleared', 'success');
+            }
+
+            showSplitModal() {
+                if (this.files.length !== 1) {
+                    this.showToast('Please select exactly one PDF file to split', 'warning');
+                    return;
+                }
+                document.getElementById('splitModal').classList.remove('hidden');
+                document.getElementById('splitModal').classList.add('flex');
+            }
+
+            hideSplitModal() {
+                document.getElementById('splitModal').classList.add('hidden');
+                document.getElementById('splitModal').classList.remove('flex');
+            }
+
+            handleSplitMethodChange() {
+                const method = document.getElementById('splitMethod').value;
+                const inputDiv = document.getElementById('splitInput');
+                
+                if (method === 'range' || method === 'pages') {
+                    inputDiv.classList.remove('hidden');
+                } else {
+                    inputDiv.classList.add('hidden');
+                }
+            }
+
+            async mergePDFs() {
+                if (this.files.length < 2) {
+                    this.showToast('Please select at least 2 PDF files to merge', 'warning');
+                    return;
+                }
+
+                this.showProgress();
+                
+                try {
+                    const mergedPdf = await PDFLib.PDFDocument.create();
+                    
+                    for (let i = 0; i < this.files.length; i++) {
+                        const fileData = this.files[i];
+                        const pdfDoc = await PDFLib.PDFDocument.load(fileData.arrayBuffer);
+                        const pageCount = pdfDoc.getPageCount();
+                        const pageIndices = Array.from({length: pageCount}, (_, i) => i);
+                        const pages = await mergedPdf.copyPages(pdfDoc, pageIndices);
+                        
+                        pages.forEach(page => mergedPdf.addPage(page));
+                        
+                        this.updateProgress(((i + 1) / this.files.length) * 100);
+                    }
+                    
+                    const pdfBytes = await mergedPdf.save();
+                    this.downloadPDF(pdfBytes, 'merged.pdf');
+                    this.showToast('PDFs merged successfully!', 'success');
+                    
+                } catch (error) {
+                    this.showToast('Error merging PDFs: ' + error.message, 'error');
+                } finally {
+                    this.hideProgress();
+                }
+            }
+
+            async splitPDF() {
+                if (this.files.length !== 1) {
+                    this.showToast('Please select exactly one PDF file to split', 'warning');
+                    return;
+                }
+
+                const method = document.getElementById('splitMethod').value;
+                const pageInput = document.getElementById('pageInput').value;
+                
+                this.hideSplitModal();
+                this.showProgress();
+                
+                try {
+                    const fileData = this.files[0];
+                    const pdfDoc = await PDFLib.PDFDocument.load(fileData.arrayBuffer);
+                    const totalPages = pdfDoc.getPageCount();
+                    
+                    let splitRanges = [];
+                    
+                    if (method === 'each') {
+                        // Split each page separately
+                        for (let i = 0; i < totalPages; i++) {
+                            splitRanges.push([i]);
+                        }
+                    } else if (method === 'pages' || method === 'range') {
+                        // Parse page input
+                        if (!pageInput.trim()) {
+                            this.showToast('Please enter page numbers or ranges', 'warning');
+                            return;
+                        }
+                        
+                        splitRanges = this.parsePageInput(pageInput, totalPages);
+                        if (splitRanges.length === 0) {
+                            this.showToast('Invalid page numbers or ranges', 'error');
+                            return;
+                        }
+                    }
+                    
+                    const downloadButtons = [];
+                    
+                    for (let i = 0; i < splitRanges.length; i++) {
+                        const range = splitRanges[i];
+                        const newPdf = await PDFLib.PDFDocument.create();
+                        const pages = await newPdf.copyPages(pdfDoc, range);
+                        
+                        pages.forEach(page => newPdf.addPage(page));
+                        
+                        const pdfBytes = await newPdf.save();
+                        const fileName = `split_${i + 1}.pdf`;
+                        
+                        downloadButtons.push({
+                            bytes: pdfBytes,
+                            name: fileName
+                        });
+                        
+                        this.updateProgress(((i + 1) / splitRanges.length) * 100);
+                    }
+                    
+                    this.showDownloadButtons(downloadButtons);
+                    this.showToast('PDF split successfully!', 'success');
+                    
+                } catch (error) {
+                    this.showToast('Error splitting PDF: ' + error.message, 'error');
+                } finally {
+                    this.hideProgress();
+                }
+            }
+
+            parsePageInput(input, totalPages) {
+                const ranges = [];
+                const parts = input.split(',').map(part => part.trim());
+                
+                for (const part of parts) {
+                    if (part.includes('-')) {
+                        const [start, end] = part.split('-').map(num => parseInt(num.trim()));
+                        if (start >= 1 && end >= start && end <= totalPages) {
+                            const range = [];
+                            for (let i = start - 1; i < end; i++) {
+                                range.push(i);
+                            }
+                            ranges.push(range);
+                        } else {
+                            return [];
+                        }
+                    } else {
+                        const pageNum = parseInt(part);
+                        if (pageNum >= 1 && pageNum <= totalPages) {
+                            ranges.push([pageNum - 1]);
+                        } else {
+                            return [];
+                        }
+                    }
+                }
+                
+                return ranges;
+            }
+
+            showProgress() {
+                document.getElementById('progressContainer').classList.remove('hidden');
+                this.updateProgress(0);
+            }
+
+            hideProgress() {
+                document.getElementById('progressContainer').classList.add('hidden');
+            }
+
+            updateProgress(percent) {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                
+                progressBar.style.width = percent + '%';
+                progressText.textContent = Math.round(percent) + '%';
+            }
+
+            downloadPDF(pdfBytes, filename) {
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showDownloadArea();
+            }
+
+            showDownloadButtons(files) {
+                const downloadArea = document.getElementById('downloadArea');
+                const downloadButtons = document.getElementById('downloadButtons');
+                
+                downloadButtons.innerHTML = '';
+                
+                files.forEach((file, index) => {
+                    const button = document.createElement('button');
+                    button.className = 'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors mx-2 mb-2';
+                    button.textContent = `Download ${file.name}`;
+                    button.onclick = () => {
+                        const blob = new Blob([file.bytes], { type: 'application/pdf' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = file.name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    };
+                    downloadButtons.appendChild(button);
+                });
+                
+                downloadArea.classList.remove('hidden');
+            }
+
+            showDownloadArea() {
+                const downloadArea = document.getElementById('downloadArea');
+                const downloadButtons = document.getElementById('downloadButtons');
+                
+                downloadButtons.innerHTML = `
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        Download Complete
+                    </button>
+                `;
